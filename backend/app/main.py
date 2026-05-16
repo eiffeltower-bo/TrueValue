@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from piccolo_admin.endpoints import create_admin
 
 from app.api.ai import router as ai_router
@@ -17,6 +18,14 @@ def create_app() -> FastAPI:
         title="TrueValue CRM API",
         version="0.1.0",
         description="Proptech CRM backend — FastAPI + Piccolo ORM.",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.get("/health", tags=["meta"])
