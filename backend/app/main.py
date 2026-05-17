@@ -12,6 +12,7 @@ from app.tables.properties import Property
 from app.tables.sales import Sale
 from app.tables.users import User
 from app.tables.measurements import Measurement
+from app.tables.visitor_events import VisitorEvent
 
 
 def create_app() -> FastAPI:
@@ -48,7 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(ai_router, prefix="/api/v1/ai", tags=["ai"])
 
     admin = create_admin(
-        tables=[User, Property, Sale, Measurement],
+        tables=[User, Property, Sale, Measurement, VisitorEvent],
         auth_table=User,
         site_name="TrueValue Admin",
         production=False,
