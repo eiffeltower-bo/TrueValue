@@ -5,7 +5,7 @@ services:
     environment:
       PROPERTY: ${PROPERTY:-1}
       NODE: ${NODE:-1}
-      BASE_URL: ${BASE_URL:-http://192.168.50.115:8000}
+      BASE_URL: ${BASE_URL:-http://192.168.10.115:8000}
       SHOW_VIDEO: ${SHOW_VIDEO:-false}
     ipc: host
     runtime: nvidia
