@@ -7,6 +7,7 @@ from app.tables.measurements import Measurement
 from app.api.edge.vision import router as vision_router
 
 router = APIRouter()
+router.include_router(vision_router)
 
 # {"temperature":30.2, "humidity":20.8, "presence": "e"}
 
