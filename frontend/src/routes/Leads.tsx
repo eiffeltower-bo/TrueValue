@@ -64,7 +64,7 @@ export function Leads() {
       setItems(leadsData);
       setAgents(new Map(users.map((u) => [u.id, u])));
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Failed to load leads.");
+      setLoadError(err instanceof Error ? err.message : "Error al cargar leads.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ export function Leads() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Leads</h1>
-          <p className="text-sm text-slate-500 mt-1">Prospective buyers and renters</p>
+          <p className="text-sm text-slate-500 mt-1">Posibles compradores e inquilinos</p>
         </div>
         <button
           type="button"
@@ -114,7 +114,7 @@ export function Leads() {
           <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          New Lead
+          Nuevo lead
         </button>
       </div>
 
@@ -133,7 +133,7 @@ export function Leads() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, phone, email, zona…"
+            placeholder="Buscar por nombre, teléfono, email, zona…"
             className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
@@ -142,14 +142,14 @@ export function Leads() {
           onChange={(e) => setStatusFilter(e.target.value as "all" | LeadStatus)}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         >
-          <option value="all">All statuses</option>
+          <option value="all">Todos los estados</option>
           {LEAD_STATUSES.map((s) => (
             <option key={s} value={s}>
               {STATUS_STYLES[s].label}
             </option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{sorted.length} of {items.length}</span>
+        <span className="text-xs text-slate-500">{sorted.length} de {items.length}</span>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
@@ -158,11 +158,11 @@ export function Leads() {
             <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500">
               <tr>
                 <SortableHeader<LeadSortKey> label="ID" sortKey="id" sort={sort} onToggle={toggle} />
-                <SortableHeader<LeadSortKey> label="Name" sortKey="full_name" sort={sort} onToggle={toggle} />
-                <SortableHeader<LeadSortKey> label="Intent" sortKey="intent" sort={sort} onToggle={toggle} />
-                <SortableHeader<LeadSortKey> label="Budget" sortKey="budget" sort={sort} onToggle={toggle} align="right" />
-                <SortableHeader<LeadSortKey> label="Status" sortKey="status" sort={sort} onToggle={toggle} />
-                <SortableHeader<LeadSortKey> label="Agent" sortKey="agent" sort={sort} onToggle={toggle} />
+                <SortableHeader<LeadSortKey> label="Nombre" sortKey="full_name" sort={sort} onToggle={toggle} />
+                <SortableHeader<LeadSortKey> label="Intención" sortKey="intent" sort={sort} onToggle={toggle} />
+                <SortableHeader<LeadSortKey> label="Presupuesto" sortKey="budget" sort={sort} onToggle={toggle} align="right" />
+                <SortableHeader<LeadSortKey> label="Estado" sortKey="status" sort={sort} onToggle={toggle} />
+                <SortableHeader<LeadSortKey> label="Agente" sortKey="agent" sort={sort} onToggle={toggle} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -182,7 +182,7 @@ export function Leads() {
                       <svg className="mb-3 h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-4a4 4 0 11-8 0 4 4 0 018 0zm6 0a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
-                      No leads yet. Click "New Lead" to add one.
+                      Aún no hay leads. Pulsa "Nuevo lead" para agregar uno.
                     </div>
                   </td>
                 </tr>
@@ -190,7 +190,7 @@ export function Leads() {
               {!loading && items.length > 0 && sorted.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
-                    No leads match the current filters.
+                    Ningún lead coincide con los filtros.
                   </td>
                 </tr>
               )}
@@ -272,7 +272,7 @@ function NewLeadModal({ onClose, onCreated }: NewLeadModalProps) {
     } catch (err) {
       if (err instanceof ApiError) setError(`${err.status}: ${err.message}`);
       else if (err instanceof Error) setError(err.message);
-      else setError("Failed to create lead.");
+      else setError("No se pudo crear el lead.");
     } finally {
       setSubmitting(false);
     }
@@ -286,21 +286,21 @@ function NewLeadModal({ onClose, onCreated }: NewLeadModalProps) {
         className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
         <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-          <h2 className="text-lg font-semibold text-slate-900">New Lead</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Nuevo lead</h2>
         </div>
 
         <div className="p-6 space-y-5">
-          <Field label="Full name">
+          <Field label="Nombre completo">
             <input
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className={inputCls}
-              placeholder="e.g. María Pérez"
+              placeholder="p. ej. María Pérez"
             />
           </Field>
 
-          <Field label="Phone">
+          <Field label="Teléfono">
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -311,7 +311,7 @@ function NewLeadModal({ onClose, onCreated }: NewLeadModalProps) {
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Intent">
+            <Field label="Intención">
               <select
                 value={intent}
                 onChange={(e) => setIntent(e.target.value as LeadIntent)}
@@ -325,7 +325,7 @@ function NewLeadModal({ onClose, onCreated }: NewLeadModalProps) {
               </select>
             </Field>
 
-            <Field label="Budget max (USD)">
+            <Field label="Presupuesto máx. (USD)">
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                   <span className="text-slate-500 sm:text-sm">$</span>
@@ -356,14 +356,14 @@ function NewLeadModal({ onClose, onCreated }: NewLeadModalProps) {
             onClick={onClose}
             className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200"
           >
-            Cancel
+            Cancelar
           </button>
           <button
             type="submit"
             disabled={submitting}
             className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
-            {submitting ? "Saving…" : "Create Lead"}
+            {submitting ? "Guardando…" : "Crear lead"}
           </button>
         </div>
       </form>

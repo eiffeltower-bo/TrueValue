@@ -15,6 +15,8 @@ import {
 import { displayName, getUser, listUsers, type User } from "../api/users";
 import { listProperties, type Property } from "../api/properties";
 import { listShowings, type Showing } from "../api/showings";
+import { LeadScoreCard } from "../components/LeadScoreCard";
+import { MatchmakingPanel } from "../components/MatchmakingPanel";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
   new: "Nuevo",
@@ -102,7 +104,7 @@ export function LeadDetails() {
             .catch(() => undefined);
         }
       })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load lead."))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Error al cargar el lead."))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -190,7 +192,7 @@ export function LeadDetails() {
       setEditing(true);
       if (err instanceof ApiError) setSaveError(`${err.status}: ${err.message}`);
       else if (err instanceof Error) setSaveError(err.message);
-      else setSaveError("Failed to save lead.");
+      else setSaveError("No se pudieron guardar los cambios.");
     } finally {
       setSaving(false);
     }
@@ -207,8 +209,8 @@ export function LeadDetails() {
   if (loadError || !lead) {
     return (
       <div className="mx-auto max-w-5xl rounded-lg border border-red-200 bg-red-50/80 px-4 py-3 text-red-600">
-        {loadError || "Lead not found."}
-        <button onClick={() => navigate("/leads")} className="ml-4 underline">Go back</button>
+        {loadError || "Lead no encontrado."}
+        <button onClick={() => navigate("/leads")} className="ml-4 underline">Volver</button>
       </div>
     );
   }
@@ -224,7 +226,7 @@ export function LeadDetails() {
             <svg className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to Leads
+            Volver a Leads
           </button>
           <h1 className="text-3xl font-bold text-slate-900">{lead.full_name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
@@ -247,7 +249,7 @@ export function LeadDetails() {
             onClick={startEdit}
             className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
           >
-            Edit
+            Editar
           </button>
         )}
       </div>
@@ -343,21 +345,8 @@ export function LeadDetails() {
               )}
             </Section>
 
-            <Section title="🤖 Matchmaking (próximamente)">
-              <p className="text-sm text-slate-600">
-                Cuando este lead tenga preferencias declaradas y actividad registrada, aquí
-                aparecerán las propiedades sugeridas por AI con un puntaje de fit y la razón
-                detrás del match.
-              </p>
-              <button
-                type="button"
-                disabled
-                className="mt-4 inline-flex items-center rounded-lg border border-purple-200 bg-purple-50/60 px-3 py-1.5 text-sm font-medium text-purple-700/70 cursor-not-allowed"
-                title="Próximamente"
-              >
-                Buscar matches
-              </button>
-            </Section>
+            <LeadScoreCard leadId={lead.id} />
+            <MatchmakingPanel leadId={lead.id} />
           </div>
         </div>
       )}
@@ -371,7 +360,7 @@ export function LeadDetails() {
           )}
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="Full name">
+            <Field label="Nombre completo">
               <input
                 required
                 value={form.full_name}
@@ -379,7 +368,7 @@ export function LeadDetails() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Phone">
+            <Field label="Teléfono">
               <input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -395,7 +384,7 @@ export function LeadDetails() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Source">
+            <Field label="Origen">
               <select
                 value={form.source}
                 onChange={(e) => setForm({ ...form, source: e.target.value as LeadSource })}
@@ -408,7 +397,7 @@ export function LeadDetails() {
                 ))}
               </select>
             </Field>
-            <Field label="Status">
+            <Field label="Estado">
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as LeadStatus })}
@@ -421,7 +410,7 @@ export function LeadDetails() {
                 ))}
               </select>
             </Field>
-            <Field label="Agent">
+            <Field label="Agente">
               <select
                 value={form.agent_id}
                 onChange={(e) => setForm({ ...form, agent_id: e.target.value })}
@@ -435,7 +424,7 @@ export function LeadDetails() {
                 ))}
               </select>
             </Field>
-            <Field label="Intent">
+            <Field label="Intención">
               <select
                 value={form.intent}
                 onChange={(e) => setForm({ ...form, intent: e.target.value as LeadIntent })}
@@ -448,7 +437,7 @@ export function LeadDetails() {
                 ))}
               </select>
             </Field>
-            <Field label="Budget min USD">
+            <Field label="Presupuesto mín. USD">
               <input
                 type="number"
                 min="0"
@@ -458,7 +447,7 @@ export function LeadDetails() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Budget max USD">
+            <Field label="Presupuesto máx. USD">
               <input
                 type="number"
                 min="0"
@@ -468,7 +457,7 @@ export function LeadDetails() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Bedrooms (min)">
+            <Field label="Dormitorios mín.">
               <input
                 type="number"
                 min="0"
@@ -477,7 +466,7 @@ export function LeadDetails() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Area min m²">
+            <Field label="Superficie mín. m²">
               <input
                 type="number"
                 min="0"
@@ -488,7 +477,7 @@ export function LeadDetails() {
             </Field>
           </div>
 
-          <Field label="Zonas de interés (comma-separated)">
+          <Field label="Zonas de interés (separadas por comas)">
             <input
               value={form.zonas}
               onChange={(e) => setForm({ ...form, zonas: e.target.value })}
@@ -497,7 +486,7 @@ export function LeadDetails() {
             />
           </Field>
 
-          <Field label="Must-haves (comma-separated)">
+          <Field label="Must-haves (separadas por comas)">
             <input
               value={form.must_haves}
               onChange={(e) => setForm({ ...form, must_haves: e.target.value })}
@@ -506,7 +495,7 @@ export function LeadDetails() {
             />
           </Field>
 
-          <Field label="Notes">
+          <Field label="Notas">
             <textarea
               rows={4}
               value={form.notes}
@@ -521,14 +510,14 @@ export function LeadDetails() {
               onClick={cancelEdit}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
               className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             >
-              {saving ? "Saving…" : "Save changes"}
+              {saving ? "Guardando…" : "Guardar cambios"}
             </button>
           </div>
         </form>

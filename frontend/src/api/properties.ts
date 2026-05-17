@@ -1,6 +1,16 @@
 import { api } from "./client";
 
-export const PROPERTY_TYPES = ["apartment", "house", "land", "office"] as const;
+// Values match what the seed data inserts so create-flows produce rows
+// consistent with what filters/dropdowns see on existing data.
+export const PROPERTY_TYPES = [
+  "Departamento",
+  "Casa",
+  "Terreno",
+  "Oficina",
+  "Local comercial",
+  "Galpón",
+  "Quinta",
+] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
 export const LISTING_TYPES = ["venta", "alquiler", "anticretico"] as const;

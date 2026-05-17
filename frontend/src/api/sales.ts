@@ -1,6 +1,19 @@
 import { api } from "./client";
 
-export const PAYMENT_METHODS = ["cash", "card", "transfer"] as const;
+// Values match the labels the seed data inserts (mirrors HIGH_VALUE_PAYMENTS
+// + SERVICE_PAYMENTS in backend/app/seed/bolivia_data.py) so create-flows
+// produce rows consistent with existing data.
+export const PAYMENT_METHODS = [
+  "Efectivo",
+  "Transferencia bancaria",
+  "Tarjeta de crédito",
+  "Tarjeta de débito",
+  "QR Banco Unión",
+  "QR BCP",
+  "QR Mercantil Santa Cruz",
+  "QR BISA",
+  "Cheque",
+] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export type Sale = {

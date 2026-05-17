@@ -120,19 +120,19 @@ function Nav() {
               to="/"
               className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
             >
-              Dashboard
+              Inicio
             </Link>
             <Link
               to="/properties"
               className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
             >
-              Properties
+              Propiedades
             </Link>
             <Link
               to="/sales"
               className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
             >
-              Sales
+              Ventas
             </Link>
             <Link
               to="/leads"
@@ -144,7 +144,7 @@ function Nav() {
               to="/agents"
               className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
             >
-              Agents
+              Agentes
             </Link>
           </div>
         </div>
@@ -163,7 +163,7 @@ function Nav() {
               onClick={handleLogout}
               className="rounded-lg border border-slate-200 bg-white/50 px-4 py-2 text-sm text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-slate-200 focus:outline-none"
             >
-              Logout
+              Cerrar sesión
             </button>
           )}
         </div>

@@ -4,6 +4,7 @@ import { displayName, getUser, type User } from "../api/users";
 import { listProperties, type Property } from "../api/properties";
 import { listSales, type Sale } from "../api/sales";
 import { LEAD_STATUSES, listLeads, type Lead, type LeadStatus } from "../api/leads";
+import { isCommissionSale } from "../lib/sales";
 
 const OPEN_LEAD_STATUSES: ReadonlySet<LeadStatus> = new Set(
   LEAD_STATUSES.filter((s) => s !== "closed" && s !== "lost"),
@@ -16,16 +17,16 @@ const LISTING_TYPE_STYLES: Record<string, { label: string; cls: string }> = {
 };
 
 function formatRelative(iso: string | null): string {
-  if (!iso) return "Never";
+  if (!iso) return "Nunca";
   const ms = Date.now() - new Date(iso).getTime();
   if (ms < 0) return new Date(iso).toLocaleString();
   const min = Math.floor(ms / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min} min ago`;
+  if (min < 1) return "hace segundos";
+  if (min < 60) return `hace ${min} min`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} h ago`;
+  if (hr < 24) return `hace ${hr} h`;
   const d = Math.floor(hr / 24);
-  if (d < 30) return `${d} d ago`;
+  if (d < 30) return `hace ${d} d`;
   return new Date(iso).toLocaleDateString();
 }
 
@@ -57,7 +58,7 @@ export function AgentDetails() {
         setSales(sls);
         setLeads(lds);
       })
-      .catch(() => setError("Failed to load agent."))
+      .catch(() => setError("Error al cargar el agente."))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -65,7 +66,8 @@ export function AgentDetails() {
     return (
       <div className="mx-auto max-w-5xl space-y-6 pb-12">
         <IdentitySkeleton />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiSkeleton />
           <KpiSkeleton />
           <KpiSkeleton />
           <KpiSkeleton />
@@ -77,9 +79,9 @@ export function AgentDetails() {
   if (error || !agent) {
     return (
       <div className="mx-auto max-w-5xl rounded-lg border border-red-200 bg-red-50/80 px-4 py-3 text-red-600">
-        {error || "Agent not found."}
+        {error || "Agente no encontrado."}
         <button onClick={() => navigate("/agents")} className="ml-4 underline">
-          Go back
+          Volver
         </button>
       </div>
     );
@@ -91,6 +93,9 @@ export function AgentDetails() {
   const myLeads = (leads ?? []).filter((l) => l.agent_id === agentId);
 
   const salesTotal = mySales.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const myCommissions = mySales.filter((s) => isCommissionSale(s.product_or_service));
+  const commissionsTotal = myCommissions.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const commissionsShare = salesTotal > 0 ? commissionsTotal / salesTotal : 0;
   const leadsOpen = myLeads.filter((l) => OPEN_LEAD_STATUSES.has(l.status)).length;
 
   const listingByType = myProperties.reduce<Record<string, number>>((acc, p) => {
@@ -110,7 +115,7 @@ export function AgentDetails() {
         <svg className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Back to Agents
+        Volver a Agentes
       </button>
 
       {/* Identity card */}
@@ -129,7 +134,7 @@ export function AgentDetails() {
                     : "bg-blue-50 text-blue-700 border-blue-100"
                 }`}
               >
-                {agent.role}
+                {agent.role === "admin" ? "Admin" : "Agente"}
               </span>
               <span
                 className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${
@@ -138,7 +143,7 @@ export function AgentDetails() {
                     : "bg-slate-100 text-slate-600 border-slate-200"
                 }`}
               >
-                {agent.active ? "Active" : "Inactive"}
+                {agent.active ? "Activo" : "Inactivo"}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">@{agent.username}</p>
@@ -154,27 +159,27 @@ export function AgentDetails() {
               </a>
               <span className="text-slate-400">·</span>
               <span className="text-slate-600">
-                Joined <span className="font-medium text-slate-900">{new Date(agent.created_at).toLocaleDateString()}</span>
+                Ingresó <span className="font-medium text-slate-900">{new Date(agent.created_at).toLocaleDateString()}</span>
               </span>
               <span className="text-slate-400">·</span>
               <span className="text-slate-600">
-                Last seen <span className="font-medium text-slate-900">{formatRelative(agent.last_login)}</span>
+                Último acceso <span className="font-medium text-slate-900">{formatRelative(agent.last_login)}</span>
               </span>
               <span className="text-slate-400">·</span>
-              <span className="text-slate-500">Member #{agent.id}</span>
+              <span className="text-slate-500">Miembro #{agent.id}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Listings */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">🏠 Active listings</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">🏠 Inmuebles activos</p>
             <Link to="/properties" className="text-xs font-medium text-blue-600 hover:underline">
-              View
+              Ver
             </Link>
           </div>
           <p className="mt-2 text-3xl font-bold text-slate-900 tabular-nums">{myProperties.length}</p>
@@ -192,7 +197,7 @@ export function AgentDetails() {
               );
             })}
             {myProperties.length === 0 && (
-              <span className="text-xs text-slate-400">No listings yet.</span>
+              <span className="text-xs text-slate-400">Sin inmuebles aún.</span>
             )}
           </div>
         </div>
@@ -200,9 +205,9 @@ export function AgentDetails() {
         {/* Sales */}
         <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">💼 Sales</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">💼 Ventas</p>
             <Link to="/sales" className="text-xs font-medium text-emerald-700 hover:underline">
-              View
+              Ver
             </Link>
           </div>
           <p className="mt-2 text-3xl font-bold text-emerald-700 tabular-nums">
@@ -210,7 +215,30 @@ export function AgentDetails() {
           </p>
           <p className="mt-2 text-xs text-emerald-700/80">
             <span className="font-semibold tabular-nums">{mySales.length}</span>{" "}
-            {mySales.length === 1 ? "transaction" : "transactions"} closed
+            {mySales.length === 1 ? "transacción cerrada" : "transacciones cerradas"}
+          </p>
+        </div>
+
+        {/* Commissions */}
+        <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">💰 Comisiones</p>
+            <Link to="/sales" className="text-xs font-medium text-amber-700 hover:underline">
+              Ver
+            </Link>
+          </div>
+          <p className="mt-2 text-3xl font-bold text-amber-700 tabular-nums">
+            ${commissionsTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </p>
+          <p className="mt-2 text-xs text-amber-700/80">
+            <span className="font-semibold tabular-nums">{myCommissions.length}</span>{" "}
+            {myCommissions.length === 1 ? "comisión cobrada" : "comisiones cobradas"}
+            {salesTotal > 0 && (
+              <>
+                {" "}· <span className="tabular-nums">{(commissionsShare * 100).toFixed(0)}%</span>{" "}
+                del valor de ventas
+              </>
+            )}
           </p>
         </div>
 
@@ -219,7 +247,7 @@ export function AgentDetails() {
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">👥 Leads</p>
             <Link to="/leads" className="text-xs font-medium text-blue-600 hover:underline">
-              View
+              Ver
             </Link>
           </div>
           <p className="mt-2 text-3xl font-bold text-slate-900 tabular-nums">
@@ -235,7 +263,7 @@ export function AgentDetails() {
             />
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            {myLeads.length === 0 ? "No leads assigned." : `${leadsOpen} open · ${myLeads.length - leadsOpen} closed/lost`}
+            {myLeads.length === 0 ? "Sin leads asignados." : `${leadsOpen} abiertos · ${myLeads.length - leadsOpen} cerrados/perdidos`}
           </p>
         </div>
       </div>

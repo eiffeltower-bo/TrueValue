@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
@@ -15,7 +16,9 @@ class SalesOverTimeBucket(BaseModel):
 
 
 class SalesOverTimeResponse(BaseModel):
-    range: RangeKey
+    range: str  # "30d" | "90d" | "365d" | "custom"
+    start_date: date
+    end_date: date
     group_by: GroupByKey
     keys: list[str]
     buckets: list[SalesOverTimeBucket]
@@ -42,14 +45,27 @@ class HotNeighborhoodEntry(BaseModel):
 
 
 class CommissionsResponse(BaseModel):
-    range: RangeKey
+    range: str
+    start_date: date
+    end_date: date
     total_usd: Decimal
     count: int
     by_kind: dict[str, Decimal]  # "venta" | "alquiler" | "administración" | "otros"
 
 
 class ConversionRateResponse(BaseModel):
-    range: RangeKey
+    range: str
+    start_date: date
+    end_date: date
     listings_total: int  # properties with listing_type=venta
     listings_sold: int  # of those, ones with ≥1 "Comisión venta" sale in window
     rate: float  # listings_sold / listings_total, 0..1; 0 when denominator is 0
+
+
+class LeadsCountResponse(BaseModel):
+    range: str
+    start_date: date
+    end_date: date
+    total: int
+    open: int  # statuses other than closed/lost
+    by_status: dict[str, int]

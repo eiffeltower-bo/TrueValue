@@ -34,11 +34,11 @@ export function Login() {
       await login(username.trim(), password);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setError("Invalid credentials.");
+        setError("Credenciales inválidas.");
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Login failed.");
+        setError("No se pudo iniciar sesión.");
       }
     } finally {
       setSubmitting(false);
@@ -58,12 +58,12 @@ export function Login() {
           <h1 className="mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
             TrueValue CRM
           </h1>
-          <p className="text-sm text-slate-500">Sign in to manage properties and sales.</p>
+          <p className="text-sm text-slate-500">Inicia sesión para gestionar propiedades y ventas.</p>
         </div>
 
         <div className="space-y-5">
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">Username</span>
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">Usuario</span>
             <input
               type="text"
               autoComplete="username"
@@ -71,12 +71,12 @@ export function Login() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-white/50 px-4 py-2.5 text-sm transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              placeholder="e.g. agent_smith"
+              placeholder="p. ej. agente_perez"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">Password</span>
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">Contraseña</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -100,7 +100,7 @@ export function Login() {
           disabled={submitting}
           className="mt-8 w-full rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:shadow-none"
         >
-          {submitting ? "Signing in…" : "Sign in"}
+          {submitting ? "Ingresando…" : "Iniciar sesión"}
         </button>
       </form>
     </div>

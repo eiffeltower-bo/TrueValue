@@ -13,6 +13,16 @@ import {
 import { displayName, listUsers, type User } from "../api/users";
 import { SortableHeader, useSort, useSorted } from "./tableUtils";
 
+function paymentBadgeCls(method: string): string {
+  const m = method.toLowerCase();
+  if (m === "efectivo") return "bg-emerald-50 text-emerald-700 border-emerald-100";
+  if (m.startsWith("tarjeta")) return "bg-purple-50 text-purple-700 border-purple-100";
+  if (m.startsWith("qr")) return "bg-blue-50 text-blue-700 border-blue-100";
+  if (m === "transferencia bancaria") return "bg-indigo-50 text-indigo-700 border-indigo-100";
+  if (m === "cheque") return "bg-amber-50 text-amber-700 border-amber-100";
+  return "bg-slate-50 text-slate-700 border-slate-200";
+}
+
 type SaleSortKey =
   | "id"
   | "product_or_service"
@@ -32,7 +42,9 @@ export function Sales() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentMethod>("all");
+  // Filter options come from the live data so they always match whatever the
+  // DB actually contains (seed data uses Spanish payment labels).
+  const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const { sort, toggle } = useSort<SaleSortKey>({ key: "sold_at", dir: "desc" });
 
   useEffect(() => {
@@ -52,11 +64,16 @@ export function Sales() {
       setAgents(new Map(users.map((u) => [u.id, u])));
       setPropertyMap(new Map(props.map((p) => [p.id, p])));
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Failed to load sales.");
+      setLoadError(err instanceof Error ? err.message : "Error al cargar ventas.");
     } finally {
       setLoading(false);
     }
   }
+
+  const paymentOptions = useMemo(
+    () => Array.from(new Set(items.map((s) => s.payment_method))).sort(),
+    [items],
+  );
 
   const agentLabel = (agentId: number) => {
     const a = agents.get(agentId);
@@ -104,8 +121,8 @@ export function Sales() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Sales</h1>
-          <p className="text-sm text-slate-500 mt-1">Track your recent transactions</p>
+          <h1 className="text-2xl font-bold text-slate-900">Ventas</h1>
+          <p className="text-sm text-slate-500 mt-1">Seguimiento de tus transacciones recientes</p>
         </div>
         <button
           type="button"
@@ -121,14 +138,14 @@ export function Sales() {
               <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-              Close Form
+              Cerrar formulario
             </>
           ) : (
             <>
               <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Register Sale
+              Registrar venta
             </>
           )}
         </button>
@@ -137,7 +154,7 @@ export function Sales() {
       {formOpen && user && (
         <div className="mb-8 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xl shadow-blue-900/5 transition-all">
           <div className="border-b border-slate-100 bg-blue-50/50 px-6 py-4">
-            <h2 className="text-sm font-semibold text-blue-900">New Transaction Details</h2>
+            <h2 className="text-sm font-semibold text-blue-900">Detalles de la nueva transacción</h2>
           </div>
           <div className="p-6">
             <SaleForm
@@ -166,23 +183,21 @@ export function Sales() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search product, location, agent, property…"
+            placeholder="Buscar por producto, ubicación, agente, propiedad…"
             className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
         <select
           value={paymentFilter}
-          onChange={(e) => setPaymentFilter(e.target.value as "all" | PaymentMethod)}
+          onChange={(e) => setPaymentFilter(e.target.value)}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         >
-          <option value="all">All payments</option>
-          {PAYMENT_METHODS.map((m) => (
-            <option key={m} value={m}>
-              {m.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-            </option>
+          <option value="all">Todos los pagos</option>
+          {paymentOptions.map((m) => (
+            <option key={m} value={m}>{m}</option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{sorted.length} of {items.length}</span>
+        <span className="text-xs text-slate-500">{sorted.length} de {items.length}</span>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
@@ -191,13 +206,13 @@ export function Sales() {
             <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500">
               <tr>
                 <SortableHeader<SaleSortKey> label="ID" sortKey="id" sort={sort} onToggle={toggle} />
-                <SortableHeader<SaleSortKey> label="Product / Service" sortKey="product_or_service" sort={sort} onToggle={toggle} />
-                <SortableHeader<SaleSortKey> label="Payment" sortKey="payment_method" sort={sort} onToggle={toggle} />
-                <SortableHeader<SaleSortKey> label="Location" sortKey="location" sort={sort} onToggle={toggle} />
-                <SortableHeader<SaleSortKey> label="Amount" sortKey="amount" sort={sort} onToggle={toggle} align="right" />
-                <SortableHeader<SaleSortKey> label="Agent" sortKey="agent" sort={sort} onToggle={toggle} />
-                <SortableHeader<SaleSortKey> label="Property" sortKey="property" sort={sort} onToggle={toggle} />
-                <SortableHeader<SaleSortKey> label="Sold at" sortKey="sold_at" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Producto / Servicio" sortKey="product_or_service" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Pago" sortKey="payment_method" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Ubicación" sortKey="location" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Monto" sortKey="amount" sort={sort} onToggle={toggle} align="right" />
+                <SortableHeader<SaleSortKey> label="Agente" sortKey="agent" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Propiedad" sortKey="property" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Fecha" sortKey="sold_at" sort={sort} onToggle={toggle} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -217,7 +232,7 @@ export function Sales() {
                       <svg className="mb-3 h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      No sales yet. Click "Register Sale" to add one.
+                      Aún no hay ventas. Pulsa "Registrar venta" para agregar una.
                     </div>
                   </td>
                 </tr>
@@ -225,7 +240,7 @@ export function Sales() {
               {!loading && items.length > 0 && sorted.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500">
-                    No sales match the current filters.
+                    Ninguna venta coincide con los filtros.
                   </td>
                 </tr>
               )}
@@ -238,14 +253,8 @@ export function Sales() {
                       <td className="whitespace-nowrap px-6 py-4 text-slate-500">#{s.id}</td>
                       <td className="px-6 py-4 font-medium text-slate-900">{s.product_or_service}</td>
                       <td className="whitespace-nowrap px-6 py-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${
-                          s.payment_method === 'cash'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                            : s.payment_method === 'credit_card'
-                            ? 'bg-purple-50 text-purple-700 border-purple-100'
-                            : 'bg-orange-50 text-orange-700 border-orange-100'
-                        }`}>
-                          {s.payment_method.replace('_', ' ')}
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${paymentBadgeCls(s.payment_method)}`}>
+                          {s.payment_method}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-slate-600">{s.location}</td>
@@ -303,7 +312,7 @@ function SaleForm({
 }) {
   const [productOrService, setProductOrService] = useState("");
   const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Efectivo");
   const [location, setLocation] = useState("");
   const [propertyId, setPropertyId] = useState<number | "">("");
   const [properties, setProperties] = useState<Property[]>([]);
@@ -341,7 +350,7 @@ function SaleForm({
       onCreated(created);
       setProductOrService("");
       setAmount("");
-      setPaymentMethod("cash");
+      setPaymentMethod("Efectivo");
       setLocation("");
       setPropertyId("");
     } catch (err) {
@@ -350,7 +359,7 @@ function SaleForm({
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Failed to register sale.");
+        setError("No se pudo registrar la venta.");
       }
     } finally {
       setSubmitting(false);
@@ -360,18 +369,18 @@ function SaleForm({
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-slate-700">Product / Service</span>
+        <span className="mb-1.5 block text-sm font-medium text-slate-700">Producto / Servicio</span>
         <input
           required
           value={productOrService}
           onChange={(e) => setProductOrService(e.target.value)}
           className={inputCls}
-          placeholder="e.g. Consulting Fee"
+          placeholder="p. ej. Comisión venta departamento"
         />
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-slate-700">Amount</span>
+        <span className="mb-1.5 block text-sm font-medium text-slate-700">Monto</span>
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             <span className="text-slate-500 sm:text-sm">$</span>
@@ -390,41 +399,39 @@ function SaleForm({
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-slate-700">Payment method</span>
+        <span className="mb-1.5 block text-sm font-medium text-slate-700">Método de pago</span>
         <select
           value={paymentMethod}
           onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
           className={inputCls}
         >
           {PAYMENT_METHODS.map((m) => (
-            <option key={m} value={m}>
-              {m.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </option>
+            <option key={m} value={m}>{m}</option>
           ))}
         </select>
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-slate-700">Location</span>
+        <span className="mb-1.5 block text-sm font-medium text-slate-700">Ubicación</span>
         <input
           required
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           className={inputCls}
-          placeholder="e.g. Branch Office"
+          placeholder="p. ej. Achumani, La Paz"
         />
       </label>
 
       <label className="block sm:col-span-2">
         <span className="mb-1.5 block text-sm font-medium text-slate-700">
-          Linked property <span className="font-normal text-slate-400">(optional)</span>
+          Propiedad vinculada <span className="font-normal text-slate-400">(opcional)</span>
         </span>
         <select
           value={propertyId}
           onChange={(e) => setPropertyId(e.target.value === "" ? "" : Number(e.target.value))}
           className={inputCls}
         >
-          <option value="">— No property —</option>
+          <option value="">— Sin propiedad —</option>
           {properties.map((p) => (
             <option key={p.id} value={p.id}>
               #{p.id} — {p.title} — ${Number(p.price).toLocaleString()}
@@ -445,7 +452,7 @@ function SaleForm({
           disabled={submitting}
           className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/50"
         >
-          {submitting ? "Processing…" : "Submit Transaction"}
+          {submitting ? "Procesando…" : "Registrar transacción"}
         </button>
       </div>
     </form>
