@@ -12,9 +12,10 @@ DEBOUNCE_TIME_SECONDS = 0.5
 
 
 class Settings(BaseSettings):
-    property: int
-    node: int
+    property: int = 1
+    node: int = 1
     base_url: str
+    show_video: bool = False
 
 
 class HTTPEventBus:
@@ -34,13 +35,13 @@ class HTTPEventBus:
             print(f"Failed to publish event: {response.status_code} - {response.text}")
 
 
-def count_specific_classes(video_path, model_path, event_bus):
+def count_specific_classes(video_path, model_path, event_bus, show_video=False):
     """Count people in a video."""
     cap = cv2.VideoCapture(video_path)
     assert cap.isOpened(), "Error reading video file"
 
     line_points = [(20, 400), (1080, 400)]
-    counter = solutions.ObjectCounter(show=True, region=line_points, model=model_path, classes=[PEOPLE_CLASS])
+    counter = solutions.ObjectCounter(show=show_video, region=line_points, model=model_path, classes=[PEOPLE_CLASS])
 
     last_count = 0
     event_debounce_start = 0
@@ -69,4 +70,4 @@ def count_specific_classes(video_path, model_path, event_bus):
 
 settings = Settings()
 http_event_bus = HTTPEventBus(settings.property, settings.node, settings.base_url)
-count_specific_classes(WEBCAM_VIDEO_PATH, "yolo26n.pt", http_event_bus)
+count_specific_classes(WEBCAM_VIDEO_PATH, "yolo26n.pt", http_event_bus, settings.show_video)
