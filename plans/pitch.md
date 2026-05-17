@@ -19,6 +19,19 @@ style: |
   .muted { color: #94a3b8; }
   ul { font-size: 32px; line-height: 1.5; }
   li { margin-bottom: 12px; }
+  .pillars { display: flex; gap: 24px; justify-content: center; margin-top: 32px; }
+  .pillar {
+    flex: 1;
+    background: #111827;
+    border: 2px solid #1f2937;
+    border-top: 4px solid #7dd3fc;
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+  }
+  .pillar .icon { font-size: 56px; line-height: 1; }
+  .pillar .label { font-size: 26px; color: #e6edf3; margin-top: 14px; font-weight: 600; }
+  .pillar .sub { font-size: 20px; color: #94a3b8; margin-top: 6px; }
   footer { color: #64748b; }
   section::after { color: #475569; }
 ---
@@ -28,6 +41,7 @@ style: |
 # TrueValue
 
 ## Copiloto Inmobiliario con IA
+## Eiffel Tower
 
 <br>
 
@@ -36,7 +50,7 @@ style: |
 <br>
 <br>
 
-<span class="muted">CochaTech 2026 · INTERSIM TECH</span>
+<span class="muted">CochaTech 2026 · Reto INTERSIM TECH</span>
 
 ---
 
@@ -54,16 +68,16 @@ Un agente inmobiliario pierde **horas cada día** calificando leads que no compr
 
 <br>
 
-<span class="muted">Y el cliente firma anticréticos **con miedo**.</span>
+<span class="muted">😰 Y el cliente firma anticréticos **con miedo**.</span>
 
 ---
 
 ## Mercado boliviano 2026
 
-- Precios **opacos** — USD inestable, sin referencia clara
-- Anticrético = **riesgo legal alto** (cláusulas, hipotecas, fraudes)
-- Asesores trabajan como **buscadores**, no como asesores
-- Cero historial digital del flujo real en la propiedad
+- 💵 Precios **opacos** — USD inestable, sin referencia clara
+- ⚖️ Anticrético = **riesgo legal alto** (cláusulas, hipotecas, fraudes)
+- 🔎 Asesores trabajan como **buscadores**, no como asesores
+- 📊 Cero historial digital del flujo real en la propiedad
 
 ---
 
@@ -79,21 +93,35 @@ Un agente inmobiliario pierde **horas cada día** calificando leads que no compr
 
 </span>
 
-<br>
-
-### 📋 CRM operativo + 🤖 IA en 3 frentes + 📡 Sensores en propiedad
+<div class="pillars">
+  <div class="pillar">
+    <div class="icon">📋</div>
+    <div class="label">CRM</div>
+    <div class="sub">operativo, móvil</div>
+  </div>
+  <div class="pillar">
+    <div class="icon">🤖</div>
+    <div class="label">IA</div>
+    <div class="sub">3 módulos</div>
+  </div>
+  <div class="pillar">
+    <div class="icon">📡</div>
+    <div class="label">Edge</div>
+    <div class="sub">sensores en propiedad</div>
+  </div>
+</div>
 
 ---
 
 ## Tres módulos de IA, hoy funcionando
 
-### 1. Lead Scoring
+### 🎯 1. Lead Scoring
 Califica automáticamente. Score, bucket, próximo paso.
 
-### 2. Matchmaking
+### 🔗 2. Matchmaking
 Cruza oferta y demanda con razones y advertencias legales.
 
-### 3. Valuación Dinámica
+### 💰 3. Valuación Dinámica
 Precio sugerido + rango USD a partir de comparables del catálogo.
 
 ---
@@ -115,10 +143,10 @@ Carla Mendoza · familia joven · USD 180k pre-aprobados
 
 ## ¿Qué acabás de ver?
 
-- **Score 100/100** — el agente sabe a quién llamar primero
-- **Match perfecto** en Cala Cala — con la razón explícita
-- **Alerta legal** en una propiedad — "papeles en revisión, requiere due diligence"
-- **Valuación:** listado USD 175k vs sugerido **USD 240k** — oportunidad clara
+- ✅ **Score 100/100** — el agente sabe a quién llamar primero
+- ✅ **Match perfecto** en Cala Cala — con la razón explícita
+- ⚠️ **Alerta legal** en una propiedad — "papeles en revisión, due diligence"
+- 💸 **Valuación:** listado USD 175k vs sugerido **USD 240k** — oportunidad clara
 
 <br>
 
@@ -128,9 +156,9 @@ Carla Mendoza · familia joven · USD 180k pre-aprobados
 
 ## Lo que nos diferencia
 
-- **No es ChatGPT envuelto.** Modelo determinista + LLM, con guardrails.
-- **Diseñado para Bolivia:** anticrético, USD/Bs, eje troncal, saneado, gas natural.
-- **Tres capas que nadie combina:**
+- 🛡️ **No es ChatGPT envuelto.** Modelo determinista + LLM, con guardrails.
+- 🇧🇴 **Diseñado para Bolivia:** anticrético, USD/Bs, eje troncal, saneado, gas natural.
+- 🧱 **Tres capas que nadie combina:**
   CRM operativo · IA que califica/empareja/valúa · sensores físicos
 
 ---
@@ -149,7 +177,7 @@ Cámara Jetson + ESP32 cuentan **visitas reales**.
 
 El sistema le dice al agente:
 
-> _"Alta demanda esta semana — considerá subir reserva."_
+> _"Alta demanda esta semana — considera subir reserva."_
 
 <span class="muted">Telemetría convertida en decisión, no en gráfico.</span>
 
@@ -158,13 +186,13 @@ El sistema le dice al agente:
 <!-- _paginate: false -->
 <!-- _backgroundColor: "#0b0f1a" -->
 
-# ¿Qué buscamos?
+# 🎯 ¿Qué buscamos?
 
 <br>
 
 <span class="big">
 
-Pilotear con **10 agentes independientes** en Cochabamba antes de fin de año.
+Pilotear con **agentes independientes** antes de fin de año.
 
 </span>
 
