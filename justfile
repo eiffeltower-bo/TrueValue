@@ -16,6 +16,9 @@ install:
 fe-install:
     cd frontend && npm install
 
+vision-install:
+    cd edge/vision && uv sync
+
 # Full bootstrap: install backend + frontend deps, start DB, run migrations
 bootstrap: install fe-install db migrate
     @echo "✅ TrueValue bootstrapped. Run 'just backend' + 'just fe' in two terminals."
@@ -77,6 +80,9 @@ fe:
 # Vite's proxy still forwards /api + /admin to the local backend.
 fe-lan:
     cd frontend && npm run dev -- --host 0.0.0.0
+
+vision:
+    cd edge/vision && uv run python -m main
 
 # Print this machine's primary IPv4 address so you can share http://<ip>:5173 with friends.
 lan-ip:

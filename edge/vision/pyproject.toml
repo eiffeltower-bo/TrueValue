@@ -1,0 +1,11 @@
+[project]
+name = "vision"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-settings>=2.14.1",
+    "requests>=2.34.2",
+    "ultralytics>=8.4.51",
+]
