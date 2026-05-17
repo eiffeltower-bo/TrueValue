@@ -255,6 +255,13 @@ export function LeadDetails() {
       </div>
 
       {!editing && (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <LeadScoreCard leadId={lead.id} />
+          <MatchmakingPanel leadId={lead.id} />
+        </div>
+      )}
+
+      {!editing && (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div className="md:col-span-2 space-y-6">
             <Section title="📋 Preferencias declaradas">
@@ -345,8 +352,6 @@ export function LeadDetails() {
               )}
             </Section>
 
-            <LeadScoreCard leadId={lead.id} />
-            <MatchmakingPanel leadId={lead.id} />
           </div>
         </div>
       )}

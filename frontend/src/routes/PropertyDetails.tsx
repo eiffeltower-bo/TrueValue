@@ -306,6 +306,8 @@ export function PropertyDetails() {
         </div>
       )}
 
+      <ValuationCard propertyId={property.id} currentPriceHint={basePrice} />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Main Info Column */}
         <div className="md:col-span-2 space-y-6">
@@ -451,8 +453,6 @@ export function PropertyDetails() {
               </div>
             </div>
           )}
-
-          <ValuationCard propertyId={property.id} currentPriceHint={basePrice} />
         </div>
 
         {/* Live Edge Telemetry Column */}
