@@ -3,6 +3,7 @@ import { useAuth } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { Login } from "./routes/Login";
 import { Properties } from "./routes/Properties";
+import { PropertyDetails } from "./routes/PropertyDetails";
 import { Sales } from "./routes/Sales";
 
 export function App() {
@@ -10,30 +11,44 @@ export function App() {
   const onLogin = location.pathname === "/login";
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col relative bg-slate-50">
+      {/* Background decoration */}
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-white to-white"></div>
+      
       {!onLogin && <Nav />}
+      
       <main className="flex-1 overflow-auto">
-        <Routes>
-          <Route path="/" element={<Navigate to="/properties" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/properties"
-            element={
-              <ProtectedRoute>
-                <Properties />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/sales"
-            element={
-              <ProtectedRoute>
-                <Sales />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <div className="mx-auto max-w-5xl px-6 py-8">
+          <Routes>
+            <Route path="/" element={<Navigate to="/properties" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/properties"
+              element={
+                <ProtectedRoute>
+                  <Properties />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/properties/:id"
+              element={
+                <ProtectedRoute>
+                  <PropertyDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sales"
+              element={
+                <ProtectedRoute>
+                  <Sales />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );
@@ -49,27 +64,41 @@ function Nav() {
   }
 
   return (
-    <nav className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-6">
-          <span className="text-sm font-semibold text-slate-900">TrueValue CRM</span>
-          <Link
-            to="/properties"
-            className="text-sm text-slate-600 hover:text-slate-900"
-          >
-            Properties
-          </Link>
-          <Link to="/sales" className="text-sm text-slate-600 hover:text-slate-900">
-            Sales
-          </Link>
+    <nav className="sticky top-0 z-50 glass">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-8">
+          <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-xl font-bold tracking-tight text-transparent">
+            TrueValue CRM
+          </span>
+          <div className="flex items-center gap-6">
+            <Link
+              to="/properties"
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
+            >
+              Properties
+            </Link>
+            <Link 
+              to="/sales" 
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
+            >
+              Sales
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-sm text-slate-500">
-          {user && <span>{user.username}</span>}
+        <div className="flex items-center gap-5 text-sm font-medium text-slate-600">
+          {user && (
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden sm:inline-block">{user.username}</span>
+            </div>
+          )}
           {user && (
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-md border border-slate-300 px-2.5 py-1 text-sm text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 bg-white/50 px-4 py-2 text-sm text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-slate-200 focus:outline-none"
             >
               Logout
             </button>

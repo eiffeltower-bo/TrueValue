@@ -94,6 +94,11 @@ lan-ip:
 superuser username="" password="" email="":
     cd backend && SUPERUSER_USERNAME="{{username}}" SUPERUSER_PASSWORD="{{password}}" SUPERUSER_EMAIL="{{email}}" uv run python -m scripts.create_superuser
 
+# Seed Bolivia-context demo data (idempotent — wipes `@seed.truevalue.local` rows then re-inserts).
+# Extra args are forwarded, e.g. `just seed --agents 50 --properties 1000 --sales 3000`.
+seed *args="":
+    cd backend && uv run python -m scripts.seed_demo {{args}}
+
 # === Quality ===
 
 # Run backend tests

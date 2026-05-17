@@ -12,6 +12,7 @@ class SaleCreate(BaseModel):
     payment_method: str = Field(..., min_length=1, max_length=32)
     location: str = Field(..., min_length=1, max_length=255)
     agent_id: int
+    property_id: int | None = None
 
 
 class SaleUpdate(BaseModel):
@@ -20,6 +21,7 @@ class SaleUpdate(BaseModel):
     payment_method: str | None = Field(default=None, min_length=1, max_length=32)
     location: str | None = Field(default=None, min_length=1, max_length=255)
     agent_id: int | None = None
+    property_id: int | None = None
 
 
 class SaleRead(BaseModel):
@@ -32,3 +34,4 @@ class SaleRead(BaseModel):
     location: str
     sold_at: datetime
     agent_id: int
+    property_id: int | None

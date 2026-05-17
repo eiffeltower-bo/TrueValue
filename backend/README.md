@@ -38,7 +38,19 @@ uv run pytest                                          # tests
 uv run ruff check . && uv run ruff format .           # lint + format
 ```
 
-Prefer the [`just`](../justfile) recipes from the repo root (`just db`, `just migrate`, `just superuser`, `just backend`).
+Prefer the [`just`](../justfile) recipes from the repo root (`just db`, `just migrate`, `just superuser`, `just backend`, `just seed`).
+
+## Demo data
+
+Populate the database with credible Bolivia-context fake data (eje troncal cities, real zonas, USD pricing, mixed real-estate services):
+
+```bash
+just seed                                              # defaults: 25 agents, 200 properties, 500 sales
+just seed --agents 50 --properties 1000 --sales 3000   # scale up
+just seed --rng-seed 42                                # reproducible
+```
+
+The seeder is idempotent: rows tagged with the `@seed.truevalue.local` email domain (plus their properties / sales) are wiped before re-inserting. Real users are untouched. It also (re)creates a demo admin: `seed_admin` / `seed-demo-1234`.
 
 ## Layout
 
@@ -57,7 +69,8 @@ backend/
 │       ├── edge/               # ESP32 / Jetson endpoints (Hito 2)
 │       └── ai/                 # NLP / matchmaking endpoints (Hito 3)
 ├── scripts/
-│   └── create_superuser.py     # backs `just superuser`
+│   ├── create_superuser.py     # backs `just superuser`
+│   └── seed_demo.py            # backs `just seed` — Bolivia-context demo data
 ├── tests/
 └── piccolo_migrations/
 ```

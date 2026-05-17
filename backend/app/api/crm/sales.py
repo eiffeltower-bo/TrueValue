@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.sales import SaleCreate, SaleRead, SaleUpdate
+from app.tables.properties import Property
 from app.tables.sales import Sale
 from app.tables.users import User
 
@@ -18,6 +19,7 @@ def _to_read(sale: Sale) -> SaleRead:
         location=sale.location,
         sold_at=sale.sold_at,
         agent_id=sale.agent,
+        property_id=sale.property,
     )
 
 
@@ -28,15 +30,25 @@ async def _ensure_agent(agent_id: int) -> None:
         )
 
 
+async def _ensure_property(property_id: int) -> None:
+    if not await Property.exists().where(Property.id == property_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"property {property_id} not found"
+        )
+
+
 @router.post("", response_model=SaleRead, status_code=status.HTTP_201_CREATED)
 async def create_sale(payload: SaleCreate) -> SaleRead:
     await _ensure_agent(payload.agent_id)
+    if payload.property_id is not None:
+        await _ensure_property(payload.property_id)
     sale = Sale(
         product_or_service=payload.product_or_service,
         amount=payload.amount,
         payment_method=payload.payment_method,
         location=payload.location,
         agent=payload.agent_id,
+        property=payload.property_id,
     )
     await sale.save().run()
     return _to_read(sale)
@@ -64,6 +76,9 @@ async def update_sale(sale_id: int, payload: SaleUpdate) -> SaleRead:
     if payload.agent_id is not None:
         await _ensure_agent(payload.agent_id)
         sale.agent = payload.agent_id
+    if payload.property_id is not None:
+        await _ensure_property(payload.property_id)
+        sale.property = payload.property_id
     if payload.product_or_service is not None:
         sale.product_or_service = payload.product_or_service
     if payload.amount is not None:
