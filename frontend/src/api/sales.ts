@@ -11,6 +11,7 @@ export type Sale = {
   location: string;
   agent_id: number;
   sold_at: string;
+  property_id: number | null;
 };
 
 export type SaleCreatePayload = {
@@ -19,6 +20,7 @@ export type SaleCreatePayload = {
   payment_method: PaymentMethod;
   location: string;
   agent_id: number;
+  property_id?: number | null;
 };
 
 export function listSales(): Promise<Sale[]> {

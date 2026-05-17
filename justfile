@@ -16,6 +16,9 @@ install:
 fe-install:
     cd frontend && npm install
 
+vision-install:
+    cd edge/vision && uv sync
+
 # Full bootstrap: install backend + frontend deps, start DB, run migrations
 bootstrap: install fe-install db migrate
     @echo "✅ TrueValue bootstrapped. Run 'just backend' + 'just fe' in two terminals."
@@ -78,6 +81,9 @@ fe:
 fe-lan:
     cd frontend && npm run dev -- --host 0.0.0.0
 
+vision:
+    cd edge/vision && uv run python -m main
+
 # Print this machine's primary IPv4 address so you can share http://<ip>:5173 with friends.
 lan-ip:
     @ipconfig getifaddr en0 2>/dev/null \
@@ -87,6 +93,11 @@ lan-ip:
 # Create or upsert an admin user (sets admin=superuser=active=true). Args: username password [email].
 superuser username="" password="" email="":
     cd backend && SUPERUSER_USERNAME="{{username}}" SUPERUSER_PASSWORD="{{password}}" SUPERUSER_EMAIL="{{email}}" uv run python -m scripts.create_superuser
+
+# Seed Bolivia-context demo data (idempotent — wipes `@seed.truevalue.local` rows then re-inserts).
+# Extra args are forwarded, e.g. `just seed --agents 50 --properties 1000 --sales 3000`.
+seed *args="":
+    cd backend && uv run python -m scripts.seed_demo {{args}}
 
 # === Quality ===
 

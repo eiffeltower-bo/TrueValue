@@ -4,6 +4,8 @@ from fastapi import APIRouter, status
 from pydantic import BaseModel
 from app.tables.measurements import Measurement
 
+from app.api.edge.vision import router as vision_router
+
 router = APIRouter()
 
 # {"temperature":30.2, "humidity":20.8, "presence": "e"}

@@ -8,11 +8,12 @@ from app.tables.properties import Property
 from app.tables.sales import Sale
 from app.tables.users import User
 from app.tables.measurements import Measurement
+from app.tables.visitor_events import VisitorEvent
 
 CURRENT_DIRECTORY = pathlib.Path(__file__).resolve().parent
 
 APP_CONFIG = AppConfig(
     app_name="truevalue",
     migrations_folder_path=str(CURRENT_DIRECTORY.parent / "piccolo_migrations"),
-    table_classes=[User, Property, Sale, Measurement],
+    table_classes=[User, Property, Sale, Measurement, VisitorEvent],
 )

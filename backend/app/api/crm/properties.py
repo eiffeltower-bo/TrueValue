@@ -18,6 +18,17 @@ def _to_read(prop: Property) -> PropertyRead:
         location=prop.location,
         agent_id=prop.agent,
         created_at=prop.created_at,
+        area_total_m2=prop.area_total_m2,
+        area_construida_m2=prop.area_construida_m2,
+        bedrooms=prop.bedrooms,
+        bathrooms=prop.bathrooms,
+        garages=prop.garages,
+        floors=prop.floors,
+        year_built=prop.year_built,
+        listing_type=prop.listing_type,
+        legal_status=prop.legal_status,
+        utilities=prop.utilities or [],
+        amenities=prop.amenities or [],
     )
 
 
@@ -37,6 +48,17 @@ async def create_property(payload: PropertyCreate) -> PropertyRead:
         property_type=payload.property_type,
         location=payload.location,
         agent=payload.agent_id,
+        area_total_m2=payload.area_total_m2,
+        area_construida_m2=payload.area_construida_m2,
+        bedrooms=payload.bedrooms,
+        bathrooms=payload.bathrooms,
+        garages=payload.garages,
+        floors=payload.floors,
+        year_built=payload.year_built,
+        listing_type=payload.listing_type,
+        legal_status=payload.legal_status,
+        utilities=payload.utilities,
+        amenities=payload.amenities,
     )
     await prop.save().run()
     return _to_read(prop)
@@ -72,6 +94,28 @@ async def update_property(property_id: int, payload: PropertyUpdate) -> Property
         prop.property_type = payload.property_type
     if payload.location is not None:
         prop.location = payload.location
+    if payload.area_total_m2 is not None:
+        prop.area_total_m2 = payload.area_total_m2
+    if payload.area_construida_m2 is not None:
+        prop.area_construida_m2 = payload.area_construida_m2
+    if payload.bedrooms is not None:
+        prop.bedrooms = payload.bedrooms
+    if payload.bathrooms is not None:
+        prop.bathrooms = payload.bathrooms
+    if payload.garages is not None:
+        prop.garages = payload.garages
+    if payload.floors is not None:
+        prop.floors = payload.floors
+    if payload.year_built is not None:
+        prop.year_built = payload.year_built
+    if payload.listing_type is not None:
+        prop.listing_type = payload.listing_type
+    if payload.legal_status is not None:
+        prop.legal_status = payload.legal_status
+    if payload.utilities is not None:
+        prop.utilities = payload.utilities
+    if payload.amenities is not None:
+        prop.amenities = payload.amenities
     await prop.save().run()
     return _to_read(prop)
 
