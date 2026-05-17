@@ -9,5 +9,7 @@ services:
       SHOW_VIDEO: ${SHOW_VIDEO:-false}
     ipc: host
     runtime: nvidia
+    devices:
+      - /dev/video0:/dev/video0
     volumes:
       - ../edge/vision:/app/vision
