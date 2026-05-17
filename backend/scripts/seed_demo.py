@@ -8,11 +8,16 @@ Run from the ``backend/`` directory::
 
     uv run python -m scripts.seed_demo                                # defaults
     uv run python -m scripts.seed_demo --agents 50 --properties 1000 --sales 3000
+    uv run python -m scripts.seed_demo --leads 200                    # bump lead count
     uv run python -m scripts.seed_demo --rng-seed 42                  # reproducible
 
-Defaults: 25 agents, 200 properties, 500 sales. Also creates / refreshes a
-demo admin (``seed_admin`` / ``seed-demo-1234``) so a fresh environment is
-immediately usable.
+Defaults: 25 agents, 200 properties, 500 sales, 80 leads. Also creates /
+refreshes a demo admin (``seed_admin`` / ``seed-demo-1234``) so a fresh
+environment is immediately usable.
+
+Sales mix: ~90% are property-linked (Comisión venta/alquiler, anticrético,
+depósito, administración) and ~10% are standalone services (notaría,
+asesoría, fotografía, tasación, etc.).
 """
 
 from __future__ import annotations
@@ -30,24 +35,41 @@ from faker import Faker
 from app.seed.bolivia_data import (
     AMENITIES_POOL,
     APELLIDOS,
-    COMMISSION_TEMPLATE_PREFIXES,
     GAS_NATURAL_PROB_BY_CITY,
     HIGH_VALUE_PAYMENTS,
+    LEAD_AREA_MIN_CHOICES,
+    LEAD_BEDROOMS_MIN_CHOICES,
+    LEAD_EMAIL_DOMAINS,
+    LEAD_MUST_HAVES,
+    LEAD_NOTES_TEMPLATES,
+    LEAD_SOURCES_WEIGHTED,
+    LEAD_STATUSES_WEIGHTED,
     LEGAL_STATUSES_WEIGHTED,
+    LINKED_SALES_TEMPLATES,
     LISTING_TYPES_WEIGHTED,
+    OFFICE_HOURS_END,
+    OFFICE_HOURS_START,
+    OFFICE_WEEKDAYS,
+    PRESENCE_WEIGHTED,
     PRICE_RANGES_USD,
     PROPERTY_FEATURES,
     PROPERTY_TYPES,
     SALE_PROPERTY_TYPES,
-    SALES_TEMPLATES,
+    SENSOR_ROOMS,
     SERVICE_PAYMENTS,
+    STANDALONE_SALES_TEMPLATES,
     UTILITIES_BASE,
     UTILITIES_EXTRA,
+    VISITOR_ENTRANCE_ROOM,
+    VISITOR_INTERIOR_ROOMS,
     ZONES_BY_CITY,
 )
+from app.tables.leads import Lead
+from app.tables.measurements import Measurement
 from app.tables.properties import Property
 from app.tables.sales import Sale
 from app.tables.users import User
+from app.tables.visitor_events import VisitorEvent
 
 SEED_EMAIL_DOMAIN = "seed.truevalue.local"
 SEED_PASSWORD = "seed-demo-1234"  # documented; only set on seed_* accounts
@@ -56,10 +78,25 @@ DEMO_ADMIN_USERNAME = "seed_admin"
 DEFAULT_AGENTS = 25
 DEFAULT_PROPERTIES = 200
 DEFAULT_SALES = 500
+DEFAULT_LEADS = 80
 
-# Probability that a non-commission sale (notarial, asesoría, etc.) is still
-# linked to a property — most aren't, but a few are tied to a specific deal.
-NON_COMMISSION_LINK_PROB = 0.30
+DEFAULT_MEASUREMENT_DAYS = 2
+DEFAULT_MEASUREMENT_SENSOR_FRAC = 0.5
+DEFAULT_OPEN_HOUSE_FRAC = 0.3
+
+# Date-range windows (days back from "now"). Business records (properties,
+# sales) span a year so timeline charts look credible. Leads stay recent
+# (90 d) because older pipeline rows would normally be closed or lost in
+# real CRM use. Edge windows live in their own seeder functions.
+PROPERTIES_DAYS_BACK = 365
+SALES_DAYS_BACK = 365
+LEADS_DAYS_BACK = 90
+
+# Fraction of sales drawn from STANDALONE_SALES_TEMPLATES (services like
+# notaría, asesoría, fotografía that aren't tied to a specific property).
+# Per-sale Bernoulli draw — converges to ~10% standalone over the default
+# 500-sale run.
+STANDALONE_SALE_FRAC = 0.10
 
 CITIES = list(ZONES_BY_CITY.keys())
 
@@ -84,6 +121,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--agents", type=int, default=DEFAULT_AGENTS)
     p.add_argument("--properties", type=int, default=DEFAULT_PROPERTIES)
     p.add_argument("--sales", type=int, default=DEFAULT_SALES)
+    p.add_argument("--leads", type=int, default=DEFAULT_LEADS)
+    p.add_argument(
+        "--measurement-days",
+        type=int,
+        default=DEFAULT_MEASUREMENT_DAYS,
+        help="Business days of office-hours measurement history (1/min cadence).",
+    )
+    p.add_argument(
+        "--measurement-sensor-frac",
+        type=float,
+        default=DEFAULT_MEASUREMENT_SENSOR_FRAC,
+        help="Fraction of seed properties that have ESP32 sensors installed.",
+    )
+    p.add_argument(
+        "--open-house-frac",
+        type=float,
+        default=DEFAULT_OPEN_HOUSE_FRAC,
+        help="Fraction of `venta` properties that hosted one open house in the last 30 days.",
+    )
     p.add_argument(
         "--rng-seed",
         type=int,
@@ -95,6 +151,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         p.error("--agents must be >= 1")
     if args.properties < 0 or args.sales < 0:
         p.error("--properties and --sales must be >= 0")
+    if args.leads < 0:
+        p.error("--leads must be >= 0")
+    if args.measurement_days < 0:
+        p.error("--measurement-days must be >= 0")
+    if not 0.0 <= args.measurement_sensor_frac <= 1.0:
+        p.error("--measurement-sensor-frac must be in [0, 1]")
+    if not 0.0 <= args.open_house_frac <= 1.0:
+        p.error("--open-house-frac must be in [0, 1]")
     return args
 
 
@@ -103,8 +167,20 @@ async def _wipe_seed_data() -> int:
     if not seed_users:
         return 0
     seed_ids = [u.id for u in seed_users]
-    # Delete sales first (they FK both agent and property). Property delete is
-    # safe because Sale.property is SET NULL on delete.
+
+    # Leads are tagged via Lead.agent (SET NULL on user delete, so we must
+    # delete by agent FK before wiping the users themselves — otherwise the
+    # cascade would orphan them).
+    await Lead.delete().where(Lead.agent.is_in(seed_ids)).run()
+
+    # Edge data FKs Property with on_delete=RESTRICT — wipe it before properties.
+    seed_props = await Property.objects().where(Property.agent.is_in(seed_ids)).run()
+    seed_prop_ids = [p.id for p in seed_props]
+    if seed_prop_ids:
+        await Measurement.delete().where(Measurement.property.is_in(seed_prop_ids)).run()
+        await VisitorEvent.delete().where(VisitorEvent.property.is_in(seed_prop_ids)).run()
+
+    # Sales first (Sale.agent is RESTRICT; Sale.property is SET NULL).
     await Sale.delete().where(Sale.agent.is_in(seed_ids)).run()
     await Property.delete().where(Property.agent.is_in(seed_ids)).run()
     await User.delete().where(User.id.is_in(seed_ids)).run()
@@ -270,7 +346,7 @@ def _build_property(rng: random.Random, agent_id: int) -> Property:
         property_type=tipo,
         location=f"{zona}, {city}",
         agent=agent_id,
-        created_at=_random_past_datetime(rng, days_back=270),
+        created_at=_random_past_datetime(rng, days_back=PROPERTIES_DAYS_BACK),
         area_total_m2=area_total,
         area_construida_m2=area_construida,
         bedrooms=bedrooms,
@@ -290,24 +366,24 @@ def _build_sale(
     agent_id: int,
     seed_properties: list[Property],
 ) -> Sale:
-    template, lo, hi = rng.choice(SALES_TEMPLATES)
-    is_commission = template.startswith(COMMISSION_TEMPLATE_PREFIXES)
+    # Decide the sale's category. If there are no properties to link to,
+    # force standalone — a linked template with no FK target would fail.
+    force_standalone = not seed_properties
+    is_standalone = force_standalone or rng.random() < STANDALONE_SALE_FRAC
 
-    # Commissions always link to a property when we have any; other services
-    # sometimes do, mostly don't.
-    link = None
-    if seed_properties and (is_commission or rng.random() < NON_COMMISSION_LINK_PROB):
-        link = rng.choice(seed_properties)
-
-    if link is not None:
-        # Use the linked property's actual zona/type for credibility.
-        location = link.location
-        tipo = link.property_type.lower()
-    else:
+    if is_standalone:
+        template, lo, hi = rng.choice(STANDALONE_SALES_TEMPLATES)
+        link: Property | None = None
         city = rng.choice(CITIES)
         zona = rng.choice(ZONES_BY_CITY[city])
         location = f"{zona}, {city}"
         tipo = rng.choice(SALE_PROPERTY_TYPES)
+    else:
+        template, lo, hi = rng.choice(LINKED_SALES_TEMPLATES)
+        link = rng.choice(seed_properties)
+        # Use the linked property's actual zona/type for credibility.
+        location = link.location
+        tipo = link.property_type.lower()
 
     # Pull the zona out of "Zona, City" for templates that use {zona}.
     zona_for_template = location.split(",", 1)[0].strip()
@@ -324,10 +400,270 @@ def _build_sale(
         amount=amount,
         payment_method=payment,
         location=location[:255],
-        sold_at=_random_past_datetime(rng, days_back=365),
+        sold_at=_random_past_datetime(rng, days_back=SALES_DAYS_BACK),
         agent=agent_id,
         property=link.id if link is not None else None,
     )
+
+
+def _bolivian_mobile(rng: random.Random) -> str:
+    """Return a Bolivia-style 8-digit mobile number, formatted ``7XX XXXXX``.
+
+    Real Bolivian mobile prefixes start with 6 or 7 (Entel / Tigo / Viva).
+    Faker's default ``phone_number`` produces US-style numbers, so we roll
+    our own.
+    """
+    prefix = rng.choice(["6", "7"])
+    rest = "".join(str(rng.randint(0, 9)) for _ in range(7))
+    return f"{prefix}{rest[:2]} {rest[2:]}"
+
+
+def _build_lead(rng: random.Random, agent_id: int, fake: Faker) -> Lead:
+    is_male = rng.random() < 0.5
+    first = fake.first_name_male() if is_male else fake.first_name_female()
+    apellido_paterno = rng.choice(APELLIDOS)
+    apellido_materno = rng.choice(APELLIDOS)
+    full_name = f"{first} {apellido_paterno} {apellido_materno}"
+
+    phone = _bolivian_mobile(rng) if rng.random() < 0.85 else None
+
+    if rng.random() < 0.60:
+        slug = _ascii_slug(f"{first}.{apellido_paterno}")
+        # Append a 1–2 digit suffix on ~30% of emails so collisions are rare
+        # when we generate many leads with similar names.
+        suffix = str(rng.randint(1, 99)) if rng.random() < 0.30 else ""
+        email = f"{slug}{suffix}@{rng.choice(LEAD_EMAIL_DOMAINS)}"
+    else:
+        email = None
+
+    source = _weighted_choice(rng, LEAD_SOURCES_WEIGHTED)
+    status = _weighted_choice(rng, LEAD_STATUSES_WEIGHTED)
+    intent = _weighted_choice(rng, LISTING_TYPES_WEIGHTED)
+
+    # Budget bands by intent, with realistic spread per Bolivian market.
+    if intent == "venta":
+        bmin = (rng.randint(40_000, 200_000) // 500) * 500
+        bmax = (int(bmin * rng.uniform(1.3, 2.5)) // 500) * 500
+    elif intent == "alquiler":
+        bmin = (rng.randint(200, 800) // 50) * 50
+        bmax = (int(bmin * rng.uniform(1.2, 2.0)) // 50) * 50
+    else:  # anticretico
+        bmin = (rng.randint(8_000, 30_000) // 500) * 500
+        bmax = (int(bmin * rng.uniform(1.3, 2.0)) // 500) * 500
+
+    # Zone preferences: 80% single-city search, 20% mixed across cities.
+    if rng.random() < 0.80:
+        pool = ZONES_BY_CITY[rng.choice(CITIES)]
+    else:
+        pool = [z for zones in ZONES_BY_CITY.values() for z in zones]
+    n_zonas = min(rng.randint(1, 3), len(pool))
+    zonas = rng.sample(pool, k=n_zonas)
+
+    bedrooms_min = rng.choice(LEAD_BEDROOMS_MIN_CHOICES) if rng.random() < 0.40 else None
+    area_min_m2 = rng.choice(LEAD_AREA_MIN_CHOICES) if rng.random() < 0.30 else None
+
+    n_musts = rng.randint(0, 3)
+    must_haves = rng.sample(LEAD_MUST_HAVES, k=n_musts) if n_musts > 0 else []
+
+    notes = rng.choice(LEAD_NOTES_TEMPLATES) if rng.random() < 0.70 else ""
+
+    return Lead(
+        full_name=full_name[:255],
+        phone=phone,
+        email=email,
+        source=source,
+        agent=agent_id,
+        status=status,
+        intent=intent,
+        budget_min_usd=Decimal(bmin),
+        budget_max_usd=Decimal(bmax),
+        zonas=zonas,
+        bedrooms_min=bedrooms_min,
+        area_min_m2=area_min_m2,
+        must_haves=must_haves,
+        notes=notes,
+        created_at=_random_past_datetime(rng, days_back=LEADS_DAYS_BACK),
+    )
+
+
+def _last_business_days(n: int) -> list[datetime]:
+    """Return the last `n` business days at midnight UTC, oldest first.
+
+    Only Mon–Fri (per OFFICE_WEEKDAYS). Today is excluded so the window is
+    fully in the past — the UI always sees complete office days.
+    """
+    if n <= 0:
+        return []
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    out: list[datetime] = []
+    cursor = today
+    while len(out) < n:
+        cursor -= timedelta(days=1)
+        if cursor.weekday() in OFFICE_WEEKDAYS:
+            out.append(cursor)
+    return list(reversed(out))
+
+
+# Presence weights while a sensor's room is "in a meeting" — flips the
+# distribution so still/moving dominate. Order matches PRESENCE_WEIGHTED keys.
+_MEETING_PRESENCE = [
+    ("still", 55),
+    ("moving", 30),
+    ("moving+still", 10),
+    ("no target", 5),
+]
+
+
+async def _seed_measurements(
+    seed_properties: list[Property],
+    rng: random.Random,
+    args: argparse.Namespace,
+) -> tuple[int, int]:
+    """Build a per-minute office-hours time-series per (property, sensor)."""
+    business_days = _last_business_days(args.measurement_days)
+    if not business_days or not seed_properties:
+        return 0, 0
+
+    rows: list[Measurement] = []
+    n_sensors = 0
+
+    for prop in seed_properties:
+        if rng.random() >= args.measurement_sensor_frac:
+            continue
+        n_for_prop = rng.randint(2, 4)
+        rooms = rng.sample(SENSOR_ROOMS, k=n_for_prop)
+
+        for room in rooms:
+            n_sensors += 1
+            sensor_id = f"esp32-{prop.id}-{room}"
+            # Per-sensor environment baselines that drift across the day.
+            temp = rng.uniform(15.0, 22.0)
+            humid = rng.uniform(45.0, 60.0)
+
+            for day in business_days:
+                # One "meeting" window per (sensor, day), 30–90 min, fully inside
+                # office hours so the bias applies cleanly.
+                latest_start = OFFICE_HOURS_END * 60 - 30
+                meet_start = rng.randint(OFFICE_HOURS_START * 60 + 30, latest_start)
+                meet_end = min(meet_start + rng.randint(30, 90), OFFICE_HOURS_END * 60)
+
+                for minute in range(OFFICE_HOURS_START * 60, OFFICE_HOURS_END * 60):
+                    temp = max(12.0, min(28.0, temp + rng.uniform(-0.1, 0.1)))
+                    humid = max(30.0, min(75.0, humid + rng.uniform(-0.5, 0.5)))
+
+                    in_meeting = meet_start <= minute < meet_end
+                    presence = _weighted_choice(
+                        rng, _MEETING_PRESENCE if in_meeting else PRESENCE_WEIGHTED
+                    )
+
+                    ts = day.replace(hour=minute // 60, minute=minute % 60)
+                    rows.append(
+                        Measurement(
+                            temperature=Decimal(f"{temp:.2f}"),
+                            humidity=Decimal(f"{humid:.2f}"),
+                            presence=presence,
+                            room=room,
+                            sensor_id=sensor_id,
+                            property=prop.id,
+                            created_at=ts,
+                        )
+                    )
+
+    await _insert_in_chunks(Measurement, rows, chunk_size=500)
+    return n_sensors, len(rows)
+
+
+async def _seed_open_houses(
+    seed_properties: list[Property],
+    rng: random.Random,
+    args: argparse.Namespace,
+) -> tuple[int, int]:
+    """Generate paired in/out visitor events for ~`open_house_frac` of venta props."""
+    venta = [p for p in seed_properties if p.listing_type == "venta"]
+    if not venta:
+        return 0, 0
+    n_to_pick = round(len(venta) * args.open_house_frac)
+    if n_to_pick <= 0:
+        return 0, 0
+    selected = rng.sample(venta, k=min(n_to_pick, len(venta)))
+
+    rows: list[VisitorEvent] = []
+    n_houses = 0
+    now = datetime.now(UTC)
+
+    for prop in selected:
+        # Pick a random weekend day in the last 30 days.
+        chosen_day = None
+        for _ in range(60):
+            days_ago = rng.randint(1, 30)
+            candidate = (now - timedelta(days=days_ago)).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            if candidate.weekday() in (5, 6):  # Sat or Sun
+                chosen_day = candidate
+                break
+        if chosen_day is None:
+            continue
+        n_houses += 1
+
+        # Open-house window 18:00–21:00 UTC ≈ 14:00–17:00 La Paz local.
+        window_start = chosen_day.replace(hour=18)
+        window_end = chosen_day.replace(hour=21)
+        window_seconds = int((window_end - window_start).total_seconds())
+        buffer_end = window_end + timedelta(minutes=30)
+
+        n_visitors = rng.randint(10, 50)
+        for _ in range(n_visitors):
+            entrance_in_ts = window_start + timedelta(seconds=rng.randint(0, window_seconds - 300))
+            visit_minutes = rng.randint(5, 60)
+            entrance_out_ts = entrance_in_ts + timedelta(minutes=visit_minutes)
+            if entrance_out_ts > buffer_end:
+                entrance_out_ts = buffer_end - timedelta(minutes=rng.randint(1, 10))
+
+            rows.append(
+                VisitorEvent(
+                    room=VISITOR_ENTRANCE_ROOM,
+                    event="in",
+                    timestamp=entrance_in_ts,
+                    property=prop.id,
+                )
+            )
+            rows.append(
+                VisitorEvent(
+                    room=VISITOR_ENTRANCE_ROOM,
+                    event="out",
+                    timestamp=entrance_out_ts,
+                    property=prop.id,
+                )
+            )
+
+            # 70% of visitors also dwell in one interior room — but only emit
+            # the pair if it fits inside the entrance window so in/out counts
+            # stay balanced per room.
+            if rng.random() < 0.7:
+                interior = rng.choice(VISITOR_INTERIOR_ROOMS)
+                room_in_ts = entrance_in_ts + timedelta(minutes=rng.randint(1, 15))
+                room_out_ts = room_in_ts + timedelta(minutes=rng.randint(2, 10))
+                if room_out_ts < entrance_out_ts:
+                    rows.append(
+                        VisitorEvent(
+                            room=interior,
+                            event="in",
+                            timestamp=room_in_ts,
+                            property=prop.id,
+                        )
+                    )
+                    rows.append(
+                        VisitorEvent(
+                            room=interior,
+                            event="out",
+                            timestamp=room_out_ts,
+                            property=prop.id,
+                        )
+                    )
+
+    await _insert_in_chunks(VisitorEvent, rows, chunk_size=500)
+    return n_houses, len(rows)
 
 
 async def _insert_in_chunks(table_cls, rows: list, chunk_size: int = 100) -> None:
@@ -367,6 +703,17 @@ async def main(argv: list[str] | None = None) -> None:
     await _insert_in_chunks(Sale, sales)
     linked = sum(1 for s in sales if s.property is not None)
     print(f"inserted {len(sales)} sales ({linked} linked to a property)")
+
+    n_sensors, n_measurements = await _seed_measurements(seed_properties, rng, args)
+    print(f"inserted {n_measurements} measurements across {n_sensors} sensors")
+
+    n_open_houses, n_events = await _seed_open_houses(seed_properties, rng, args)
+    print(f"inserted {n_events} visitor events across {n_open_houses} open houses")
+
+    if args.leads > 0:
+        leads = [_build_lead(rng, rng.choice(agent_ids), fake) for _ in range(args.leads)]
+        await _insert_in_chunks(Lead, leads)
+        print(f"inserted {len(leads)} leads")
 
     print("seed complete")
 

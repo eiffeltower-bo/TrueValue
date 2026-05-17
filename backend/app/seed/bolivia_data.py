@@ -185,11 +185,27 @@ PROPERTY_FEATURES: list[str] = [
 # Plantillas de servicios/productos para la tabla `sales`. Cada entrada es
 # (plantilla, monto_min_usd, monto_max_usd). La plantilla acepta los
 # placeholders {tipo} y {zona}.
-SALES_TEMPLATES: list[tuple[str, int, int]] = [
+#
+# Dos categorías:
+#   - LINKED_SALES_TEMPLATES: la venta está atada a una propiedad concreta
+#     (comisiones, depósitos, anticrético, administración). El seeder SIEMPRE
+#     asigna `Sale.property` para estas entradas.
+#   - STANDALONE_SALES_TEMPLATES: servicios independientes (notaría, asesoría,
+#     fotografía, tasación, tour virtual, publicación). `Sale.property` queda
+#     null — no están atados a una propiedad específica del CRM.
+#
+# El seeder usa una mezcla 90/10 (linked/standalone) por defecto, controlado
+# por `STANDALONE_SALE_FRAC` en seed_demo.py.
+
+LINKED_SALES_TEMPLATES: list[tuple[str, int, int]] = [
     ("Comisión venta {tipo} en {zona}", 2_000, 18_000),
     ("Comisión alquiler {tipo} en {zona}", 250, 1_400),
     ("Depósito garantía alquiler — {zona}", 300, 1_800),
     ("Contrato anticrético {tipo} en {zona}", 10_000, 55_000),
+    ("Comisión administración mensual de inmueble", 150, 900),
+]
+
+STANDALONE_SALES_TEMPLATES: list[tuple[str, int, int]] = [
     ("Servicio de tasación inmobiliaria — {zona}", 90, 380),
     ("Trámite notarial — minuta de transferencia", 180, 550),
     ("Trámite Derechos Reales — registro de propiedad", 220, 750),
@@ -198,7 +214,6 @@ SALES_TEMPLATES: list[tuple[str, int, int]] = [
     ("Fotografía profesional de inmueble — {zona}", 80, 240),
     ("Tour virtual 360° — {zona}", 120, 320),
     ("Publicación premium en portal inmobiliario", 60, 220),
-    ("Comisión administración mensual de inmueble", 150, 900),
 ]
 
 # Tipo de inmueble usado dentro de las plantillas de servicios (en minúscula).
@@ -284,13 +299,97 @@ LEGAL_STATUSES_WEIGHTED: list[tuple[str, int]] = [
     ("pendiente", 5),
 ]
 
-# Plantillas de servicios que SIEMPRE deberían enlazar una propiedad
-# concreta (las comisiones y contratos). Se identifican por substring
-# inicial de la plantilla.
-COMMISSION_TEMPLATE_PREFIXES: tuple[str, ...] = (
-    "Comisión venta",
-    "Comisión alquiler",
-    "Contrato anticrético",
-    "Depósito garantía",
-    "Comisión administración",
-)
+# === Lead seeding ===
+
+# Fuente de origen del lead. Distribución pesada en función de cómo entran
+# realmente los leads a una inmobiliaria boliviana mediana hoy en día.
+LEAD_SOURCES_WEIGHTED: list[tuple[str, int]] = [
+    ("web", 35),
+    ("walk_in", 25),
+    ("referral", 20),
+    ("open_house", 15),
+    ("other", 5),
+]
+
+# Estado del pipeline. Se sesga al mid-pipeline (contactado / visitando)
+# porque los leads más antiguos suelen estar cerrados o perdidos, y los muy
+# recientes recién entran como `new`.
+LEAD_STATUSES_WEIGHTED: list[tuple[str, int]] = [
+    ("new", 20),
+    ("contacted", 25),
+    ("visiting", 25),
+    ("negotiating", 15),
+    ("closed", 10),
+    ("lost", 5),
+]
+
+# Requisitos típicos en una búsqueda inmobiliaria boliviana.
+LEAD_MUST_HAVES: list[str] = [
+    "garaje",
+    "balcón",
+    "amoblado",
+    "vista",
+    "seguridad 24h",
+    "ascensor",
+    "gas natural",
+    "parrillero",
+    "jardín",
+    "piscina",
+    "cerca de colegio",
+    "cerca de transporte público",
+    "cerca de supermercado",
+    "para mascotas",
+]
+
+# Notas estilo CRM real. Mezcla de detalle operativo, preferencias y señales
+# de calificación. ~30% de los leads quedan con notas vacías.
+LEAD_NOTES_TEMPLATES: list[str] = [
+    "Contactado por WhatsApp, prefiere visita el sábado.",
+    "Mostró interés alto, viene por referido.",
+    "Busca depto cerca de buen colegio.",
+    "Solicita financiamiento bancario.",
+    "Solo dispone los fines de semana.",
+    "Quiere comparar con su pareja antes de decidir.",
+    "Mencionó presupuesto flexible.",
+    "Necesita mudarse antes de fin de año.",
+    "Trabaja en zona sur, busca cercanía a la oficina.",
+    "Pide vista a la cordillera.",
+    "Tiene mascota, requiere espacio adecuado.",
+    "Pareja joven, primera compra.",
+    "Inversionista — busca renta segura.",
+    "Cliente extranjero, prefiere comunicación por email.",
+    "Aún no decidió zona, está comparando varias opciones.",
+    "Lead frío — no respondió a último contacto.",
+]
+
+LEAD_BEDROOMS_MIN_CHOICES: list[int] = [1, 2, 2, 3, 3, 4]  # weighted toward 2–3
+LEAD_AREA_MIN_CHOICES: list[int] = [60, 80, 100, 120, 150, 200]
+
+# Dominios de email comunes para los contactos generados.
+LEAD_EMAIL_DOMAINS: list[str] = ["gmail.com", "hotmail.com", "yahoo.com", "outlook.com"]
+
+# === Edge / IoT seed parameters ===
+
+# ESP32 presence-node room labels (free-form Varchar in `measurements.room`).
+SENSOR_ROOMS: list[str] = ["entrada", "sala", "cocina", "dormitorio", "bano"]
+
+# Firmware emits exactly one of these four values for `measurements.presence`.
+# Weighted toward "no target" since rooms are empty most of the office day.
+PRESENCE_WEIGHTED: list[tuple[str, int]] = [
+    ("no target", 70),
+    ("still", 18),
+    ("moving", 10),
+    ("moving+still", 2),
+]
+
+# Office-hours window used when generating measurement time-series. Outside
+# this window we don't emit readings — keeps the demo dataset focused on
+# the business day.
+OFFICE_HOURS_START = 9  # 09:00 UTC, inclusive
+OFFICE_HOURS_END = 18  # 18:00 UTC, exclusive
+OFFICE_WEEKDAYS: set[int] = {0, 1, 2, 3, 4}  # Mon–Fri (datetime.weekday())
+
+# Jetson zone numbering for `visitor_events.room` (Numeric). A single device
+# at the entrance fans out logically to a few interior rooms.
+VISITOR_ENTRANCE_ROOM = 0
+VISITOR_INTERIOR_ROOMS: list[int] = [1, 2, 3]

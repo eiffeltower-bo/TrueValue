@@ -22,7 +22,7 @@ export function Login() {
   }
 
   if (user) {
-    const redirectTo = (location.state as LocationState)?.from ?? "/properties";
+    const redirectTo = (location.state as LocationState)?.from ?? "/";
     return <Navigate to={redirectTo} replace />;
   }
 

@@ -4,10 +4,12 @@ import pathlib
 
 from piccolo.conf.apps import AppConfig
 
+from app.tables.leads import Lead
+from app.tables.measurements import Measurement
 from app.tables.properties import Property
 from app.tables.sales import Sale
+from app.tables.showings import Showing
 from app.tables.users import User
-from app.tables.measurements import Measurement
 from app.tables.visitor_events import VisitorEvent
 
 CURRENT_DIRECTORY = pathlib.Path(__file__).resolve().parent
@@ -15,5 +17,5 @@ CURRENT_DIRECTORY = pathlib.Path(__file__).resolve().parent
 APP_CONFIG = AppConfig(
     app_name="truevalue",
     migrations_folder_path=str(CURRENT_DIRECTORY.parent / "piccolo_migrations"),
-    table_classes=[User, Property, Sale, Measurement, VisitorEvent],
+    table_classes=[User, Property, Sale, Measurement, VisitorEvent, Lead, Showing],
 )

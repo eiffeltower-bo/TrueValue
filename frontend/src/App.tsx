@@ -1,6 +1,11 @@
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
+import { AgentDetails } from "./routes/AgentDetails";
+import { Agents } from "./routes/Agents";
+import { Dashboard } from "./routes/Dashboard";
+import { LeadDetails } from "./routes/LeadDetails";
+import { Leads } from "./routes/Leads";
 import { Login } from "./routes/Login";
 import { Properties } from "./routes/Properties";
 import { PropertyDetails } from "./routes/PropertyDetails";
@@ -20,8 +25,16 @@ export function App() {
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-5xl px-6 py-8">
           <Routes>
-            <Route path="/" element={<Navigate to="/properties" replace />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
             <Route
               path="/properties"
               element={
@@ -43,6 +56,38 @@ export function App() {
               element={
                 <ProtectedRoute>
                   <Sales />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leads"
+              element={
+                <ProtectedRoute>
+                  <Leads />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leads/:id"
+              element={
+                <ProtectedRoute>
+                  <LeadDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/agents"
+              element={
+                <ProtectedRoute>
+                  <Agents />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/agents/:id"
+              element={
+                <ProtectedRoute>
+                  <AgentDetails />
                 </ProtectedRoute>
               }
             />
@@ -72,16 +117,34 @@ function Nav() {
           </span>
           <div className="flex items-center gap-6">
             <Link
+              to="/"
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
+            >
+              Dashboard
+            </Link>
+            <Link
               to="/properties"
               className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
             >
               Properties
             </Link>
-            <Link 
-              to="/sales" 
+            <Link
+              to="/sales"
               className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
             >
               Sales
+            </Link>
+            <Link
+              to="/leads"
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
+            >
+              Leads
+            </Link>
+            <Link
+              to="/agents"
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-blue-600"
+            >
+              Agents
             </Link>
           </div>
         </div>

@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
 import { listProperties, type Property } from "../api/properties";
@@ -9,13 +10,30 @@ import {
   type PaymentMethod,
   type Sale,
 } from "../api/sales";
+import { displayName, listUsers, type User } from "../api/users";
+import { SortableHeader, useSort, useSorted } from "./tableUtils";
+
+type SaleSortKey =
+  | "id"
+  | "product_or_service"
+  | "payment_method"
+  | "location"
+  | "amount"
+  | "agent"
+  | "property"
+  | "sold_at";
 
 export function Sales() {
   const { user } = useAuth();
   const [items, setItems] = useState<Sale[]>([]);
+  const [agents, setAgents] = useState<Map<number, User>>(new Map());
+  const [propertyMap, setPropertyMap] = useState<Map<number, Property>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentMethod>("all");
+  const { sort, toggle } = useSort<SaleSortKey>({ key: "sold_at", dir: "desc" });
 
   useEffect(() => {
     void refresh();
@@ -25,13 +43,62 @@ export function Sales() {
     setLoading(true);
     setLoadError(null);
     try {
-      setItems(await listSales());
+      const [sales, users, props] = await Promise.all([
+        listSales(),
+        listUsers().catch(() => [] as User[]),
+        listProperties().catch(() => [] as Property[]),
+      ]);
+      setItems(sales);
+      setAgents(new Map(users.map((u) => [u.id, u])));
+      setPropertyMap(new Map(props.map((p) => [p.id, p])));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Failed to load sales.");
     } finally {
       setLoading(false);
     }
   }
+
+  const agentLabel = (agentId: number) => {
+    const a = agents.get(agentId);
+    return a ? displayName(a) : `#${agentId}`;
+  };
+
+  const propertyLabel = (propertyId: number | null) => {
+    if (propertyId == null) return "";
+    const p = propertyMap.get(propertyId);
+    return p ? p.title : `#${propertyId}`;
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((s) => {
+      if (paymentFilter !== "all" && s.payment_method !== paymentFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        s.product_or_service,
+        s.location,
+        s.payment_method,
+        agentLabel(s.agent_id),
+        propertyLabel(s.property_id),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, search, paymentFilter, agents, propertyMap]);
+
+  const sorted = useSorted(filtered, sort, (s, key) => {
+    switch (key) {
+      case "id": return s.id;
+      case "product_or_service": return s.product_or_service;
+      case "payment_method": return s.payment_method;
+      case "location": return s.location;
+      case "amount": return Number(s.amount);
+      case "agent": return agentLabel(s.agent_id);
+      case "property": return propertyLabel(s.property_id);
+      case "sold_at": return s.sold_at;
+    }
+  });
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -90,24 +157,53 @@ export function Sales() {
         </div>
       )}
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[12rem]">
+          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z" />
+          </svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search product, location, agent, property…"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+        </div>
+        <select
+          value={paymentFilter}
+          onChange={(e) => setPaymentFilter(e.target.value as "all" | PaymentMethod)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        >
+          <option value="all">All payments</option>
+          {PAYMENT_METHODS.map((m) => (
+            <option key={m} value={m}>
+              {m.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-slate-500">{sorted.length} of {items.length}</span>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500">
               <tr>
-                <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Product / Service</th>
-                <th className="px-6 py-4">Payment</th>
-                <th className="px-6 py-4">Location</th>
-                <th className="px-6 py-4 text-right">Amount</th>
-                <th className="px-6 py-4">Agent</th>
-                <th className="px-6 py-4">Sold at</th>
+                <SortableHeader<SaleSortKey> label="ID" sortKey="id" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Product / Service" sortKey="product_or_service" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Payment" sortKey="payment_method" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Location" sortKey="location" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Amount" sortKey="amount" sort={sort} onToggle={toggle} align="right" />
+                <SortableHeader<SaleSortKey> label="Agent" sortKey="agent" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Property" sortKey="property" sort={sort} onToggle={toggle} />
+                <SortableHeader<SaleSortKey> label="Sold at" sortKey="sold_at" sort={sort} onToggle={toggle} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"></div>
                     </div>
@@ -116,7 +212,7 @@ export function Sales() {
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center">
                       <svg className="mb-3 h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -126,38 +222,70 @@ export function Sales() {
                   </td>
                 </tr>
               )}
+              {!loading && items.length > 0 && sorted.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500">
+                    No sales match the current filters.
+                  </td>
+                </tr>
+              )}
               {!loading &&
-                items.map((s) => (
-                  <tr key={s.id} className="transition-colors hover:bg-slate-50">
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-500">#{s.id}</td>
-                    <td className="px-6 py-4 font-medium text-slate-900">{s.product_or_service}</td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${
-                        s.payment_method === 'cash' 
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                          : s.payment_method === 'credit_card'
-                          ? 'bg-purple-50 text-purple-700 border-purple-100'
-                          : 'bg-orange-50 text-orange-700 border-orange-100'
-                      }`}>
-                        {s.payment_method.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">{s.location}</td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right font-medium text-emerald-600 tabular-nums">
-                      ${s.amount.toLocaleString()}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-500">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-600">
-                          {s.agent_id}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-500 text-xs">
-                      {new Date(s.sold_at).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
+                sorted.map((s) => {
+                  const agent = agents.get(s.agent_id);
+                  const linkedProp = s.property_id != null ? propertyMap.get(s.property_id) : undefined;
+                  return (
+                    <tr key={s.id} className="transition-colors hover:bg-slate-50">
+                      <td className="whitespace-nowrap px-6 py-4 text-slate-500">#{s.id}</td>
+                      <td className="px-6 py-4 font-medium text-slate-900">{s.product_or_service}</td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${
+                          s.payment_method === 'cash'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : s.payment_method === 'credit_card'
+                            ? 'bg-purple-50 text-purple-700 border-purple-100'
+                            : 'bg-orange-50 text-orange-700 border-orange-100'
+                        }`}>
+                          {s.payment_method.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">{s.location}</td>
+                      <td className="whitespace-nowrap px-6 py-4 text-right font-medium text-emerald-600 tabular-nums">
+                        ${Number(s.amount).toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-slate-700">
+                        <Link
+                          to={`/agents/${s.agent_id}`}
+                          className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-blue-50/60"
+                        >
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white">
+                            {(agent ? displayName(agent) : String(s.agent_id)).charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-sm text-blue-700 hover:underline">
+                            {agent ? displayName(agent) : `#${s.agent_id}`}
+                          </span>
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {s.property_id != null ? (
+                          <Link
+                            to={`/properties/${s.property_id}`}
+                            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            <span className="max-w-[14rem] truncate">{linkedProp ? linkedProp.title : `#${s.property_id}`}</span>
+                          </Link>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-slate-500 text-xs">
+                        {new Date(s.sold_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

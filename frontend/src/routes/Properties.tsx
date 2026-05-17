@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
 import {
@@ -9,14 +9,22 @@ import {
   type Property,
   type PropertyType,
 } from "../api/properties";
+import { displayName, listUsers, type User } from "../api/users";
+import { SortableHeader, useSort, useSorted } from "./tableUtils";
+
+type PropertySortKey = "id" | "title" | "property_type" | "location" | "price" | "agent";
 
 export function Properties() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState<Property[]>([]);
+  const [agents, setAgents] = useState<Map<number, User>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | PropertyType>("all");
+  const { sort, toggle } = useSort<PropertySortKey>({ key: "id", dir: "asc" });
 
   useEffect(() => {
     void refresh();
@@ -26,13 +34,46 @@ export function Properties() {
     setLoading(true);
     setLoadError(null);
     try {
-      setItems(await listProperties());
+      const [props, users] = await Promise.all([
+        listProperties(),
+        listUsers().catch(() => [] as User[]),
+      ]);
+      setItems(props);
+      setAgents(new Map(users.map((u) => [u.id, u])));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Failed to load properties.");
     } finally {
       setLoading(false);
     }
   }
+
+  const agentLabel = (agentId: number) => {
+    const a = agents.get(agentId);
+    return a ? displayName(a) : `#${agentId}`;
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((p) => {
+      if (typeFilter !== "all" && p.property_type !== typeFilter) return false;
+      if (!q) return true;
+      const haystack = [p.title, p.location, p.property_type, agentLabel(p.agent_id)]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, search, typeFilter, agents]);
+
+  const sorted = useSorted(filtered, sort, (p, key) => {
+    switch (key) {
+      case "id": return p.id;
+      case "title": return p.title;
+      case "property_type": return p.property_type;
+      case "location": return p.location;
+      case "price": return Number(p.price);
+      case "agent": return agentLabel(p.agent_id);
+    }
+  });
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -92,17 +133,45 @@ export function Properties() {
         </div>
       )}
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[12rem]">
+          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z" />
+          </svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search title, location, agent…"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+        </div>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as "all" | PropertyType)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        >
+          <option value="all">All types</option>
+          {PROPERTY_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-slate-500">{sorted.length} of {items.length}</span>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500">
               <tr>
-                <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Title</th>
-                <th className="px-6 py-4">Type</th>
-                <th className="px-6 py-4">Location</th>
-                <th className="px-6 py-4 text-right">Price</th>
-                <th className="px-6 py-4">Agent</th>
+                <SortableHeader<PropertySortKey> label="ID" sortKey="id" sort={sort} onToggle={toggle} />
+                <SortableHeader<PropertySortKey> label="Title" sortKey="title" sort={sort} onToggle={toggle} />
+                <SortableHeader<PropertySortKey> label="Type" sortKey="property_type" sort={sort} onToggle={toggle} />
+                <SortableHeader<PropertySortKey> label="Location" sortKey="location" sort={sort} onToggle={toggle} />
+                <SortableHeader<PropertySortKey> label="Price" sortKey="price" sort={sort} onToggle={toggle} align="right" />
+                <SortableHeader<PropertySortKey> label="Agent" sortKey="agent" sort={sort} onToggle={toggle} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -127,33 +196,49 @@ export function Properties() {
                   </td>
                 </tr>
               )}
+              {!loading && items.length > 0 && sorted.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
+                    No properties match the current filters.
+                  </td>
+                </tr>
+              )}
               {!loading &&
-                items.map((p) => (
-                  <tr 
-                    key={p.id} 
-                    onClick={() => navigate(`/properties/${p.id}`)}
-                    className="transition-colors hover:bg-slate-50 cursor-pointer"
-                  >
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-500">#{p.id}</td>
-                    <td className="px-6 py-4 font-medium text-slate-900">{p.title}</td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 capitalize border border-blue-100">
-                        {p.property_type.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">{p.location}</td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right font-medium text-slate-900 tabular-nums">
-                      ${p.price.toLocaleString()}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-500">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-600">
-                          {p.agent_id}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                sorted.map((p) => {
+                  const agent = agents.get(p.agent_id);
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => navigate(`/properties/${p.id}`)}
+                      className="transition-colors hover:bg-slate-50 cursor-pointer"
+                    >
+                      <td className="whitespace-nowrap px-6 py-4 text-slate-500">#{p.id}</td>
+                      <td className="px-6 py-4 font-medium text-slate-900">{p.title}</td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 capitalize border border-blue-100">
+                          {p.property_type.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">{p.location}</td>
+                      <td className="whitespace-nowrap px-6 py-4 text-right font-medium text-slate-900 tabular-nums">
+                        ${Number(p.price).toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-slate-700" onClick={(e) => e.stopPropagation()}>
+                        <Link
+                          to={`/agents/${p.agent_id}`}
+                          className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-blue-50/60"
+                        >
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white">
+                            {(agent ? displayName(agent) : String(p.agent_id)).charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-sm text-blue-700 hover:underline">
+                            {agent ? displayName(agent) : `#${p.agent_id}`}
+                          </span>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

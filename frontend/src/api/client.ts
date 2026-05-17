@@ -78,6 +78,9 @@ export const api = {
   get: <T>(path: string) => request<T>(API_BASE_URL, path, { method: "GET" }),
   post: <T>(path: string, body: unknown) =>
     request<T>(API_BASE_URL, path, { method: "POST", body }),
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(API_BASE_URL, path, { method: "PATCH", body }),
+  delete: <T>(path: string) => request<T>(API_BASE_URL, path, { method: "DELETE" }),
 };
 
 export const admin = {
